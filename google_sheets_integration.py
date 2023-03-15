@@ -15,7 +15,3 @@ class Sheet:
             return(duty_string)
         except:
             return("Looks like we have the day off! Jk, somebody should probabaly figure out who's on duty")
-        
-new_sheet = Sheet()
-test = new_sheet.get_on_duty('Apr 12')
-print(test)
