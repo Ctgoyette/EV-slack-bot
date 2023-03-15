@@ -1,5 +1,4 @@
 from datetime import datetime
-from google_sheets_integration import Sheet
 import gspread
 
 
