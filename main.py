@@ -21,14 +21,15 @@ def get_on_duty(date):
         return("Looks like we have the day off! Jk, somebody should probabaly figure out who's on duty")
 
 today = datetime.now()
-abbrev = today.strftime('%b %d').replace(' 0', ' ')
-people_on_duty = get_on_duty(abbrev)
+abbrev_date = today.strftime('%b %d').replace(' 0', ' ')
+people_on_duty = get_on_duty(abbrev_date)
+formatted_date = today.strftime('%B %d, %Y')
 
 # slack authentication & message posting
 client = WebClient(token='slack-creds')
 
 try:
-    response = client.chat_postMessage(channel='channel-id', text=people_on_duty)
+    response = client.chat_postMessage(channel='channel-id', text=people_on_duty + "\n" + formatted_date)
     # assert response["message"]["text"] == "drop dead"
 except SlackApiError as e:
     # You will get a SlackApiError if "ok" is False
