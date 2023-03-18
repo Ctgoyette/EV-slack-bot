@@ -25,10 +25,10 @@ abbrev = today.strftime('%b %d').replace(' 0', ' ')
 people_on_duty = get_on_duty(abbrev)
 
 # slack authentication & message posting
-client = WebClient(token='xoxb-3882850848320-4839925368289-QxzrbFIC5jFiN344EZIxdNXk')
+client = WebClient(token='slack-creds')
 
 try:
-    response = client.chat_postMessage(channel="C03RMNF8GC9", text=people_on_duty)
+    response = client.chat_postMessage(channel='channel-id', text=people_on_duty)
     # assert response["message"]["text"] == "drop dead"
 except SlackApiError as e:
     # You will get a SlackApiError if "ok" is False
