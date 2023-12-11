@@ -76,7 +76,7 @@ slack_creds_file = open("ev-slack-app-auth.txt", "r")
 client = WebClient(token=slack_creds_file.readline())
 
 try:
-    response = client.chat_postMessage(channel='C069GEG60G3', text=duty_text) # Bot channel
+    response = client.chat_postMessage(channel='C05CDGPHMU2', text=duty_text) # Bot channel
     #response = client.chat_postMessage(channel='C05CDGPHMU2', text=duty_text) # Duty info channel
     # assert response["message"]["text"] == "drop dead"
     print(duty_text)
