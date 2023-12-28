@@ -6,25 +6,45 @@ from slack_sdk.errors import SlackApiError;
 
 # call google spreadsheet
 gc = gspread.service_account(filename=r'ev-slack-bot-credentials.json')
-sheet = gc.open('EVH RA Fall 2023 Duty + More')
+sheet = gc.open('EVH Spring 2024 Duty + More (27)')
 duty_worksheet = sheet.worksheet('Duty')
 try:
     move_out_worksheet = sheet.worksheet('Move-Out')
 except:
-    pass
+    move_out_worksheet = None
+try:
+    move_in_worksheet = sheet.worksheet('Move-In By Shift')
+except:
+    move_in_worksheet = None
 
     
 # finds the people on duty for the given date
 def get_people_on_row(worksheet, row, start_column):
     try:
-        person_one = worksheet.cell(row, start_column).value
-        person_two = worksheet.cell(row, start_column+1).value
-        if person_two is not None:
-            people_string = '{} & {}'.format(person_one, person_two)
+        start_column -= 1
+        list_of_people = []
+        current_row_values = worksheet.row_values(row)
+        current_row_values.append('')
+        name = current_row_values[start_column]
+        while name is not None and name != '':
+            list_of_people.append(name)
+            start_column += 1
+            name = current_row_values[start_column]
+        people_list_length = len(list_of_people)
+        people_string = list_of_people[0]
+        if people_list_length == 1:
+            pass
+        elif people_list_length == 2:
+            people_string = list_of_people[0] + ' & ' + list_of_people[1]
         else:
-            people_string = person_one
+            for person in list_of_people[1:]:
+                if person == list_of_people[-1]:
+                    people_string = people_string + ', & ' + person
+                else:
+                    people_string = people_string + ', ' + person
         return(people_string)
-    except:
+    except Exception as e:
+        print(e)
         print("Could not get people in the row")
 
 def get_on_duty(date):
@@ -50,33 +70,62 @@ def get_move_out(date):
             target_row +=1
         return(move_out_people)
     except Exception as e:
-        print (e)
         print (move_out_worksheet.row_count)
         print('Could not find any move-out shifts for today')
         return None
     
+def get_move_in(date):
+    DATE_COLUMN = 1
+    TIME_COLUMN = 3
+    FIRST_RA_COLUMN = 5
+    try:
+        target_row = move_in_worksheet.find(date).row
+        move_in_row = get_people_on_row(move_in_worksheet, target_row, FIRST_RA_COLUMN)
+        move_in_people = '`' + move_in_worksheet.cell(target_row, TIME_COLUMN).value + '`: ' + move_in_row
+        target_row += 1
+        while (target_row - 1 != move_in_worksheet.row_count) and (move_in_worksheet.cell(target_row, FIRST_RA_COLUMN).value is not None) and (move_in_worksheet.cell(target_row, DATE_COLUMN).value is None):
+            move_in_row = get_people_on_row(move_in_worksheet, target_row, FIRST_RA_COLUMN)
+            move_in_people = move_in_people + '\n' + '`' + move_in_worksheet.cell(target_row, TIME_COLUMN).value + '`: ' + move_in_row
+            target_row +=1
+        return(move_in_people)
+    except Exception as e:
+        print(e)
+        print("Move in worksheet rows: {}".format(move_in_worksheet.row_count))
+        print('Could not find any move-in shifts for today')
+        return None
+    
 
-today = datetime.now()
+today = datetime.now() + timedelta(days=9)
+display_formatted_date = today.strftime('%B %d, %Y')
 abbrev_duty_date = today.strftime('%b %d').replace(' 0', ' ')
 abbrev_move_out_date = today.strftime('%m/%d').replace(' 0', ' ')
+abbrev_move_in_date = today.strftime('%a %b %d').replace(' 0', ' ')
 people_on_duty = get_on_duty(abbrev_duty_date)
-move_out_people = get_move_out(abbrev_move_out_date)
-formatted_date = today.strftime('%B %d, %Y')
+try:
+    move_out_people = get_move_out(abbrev_move_out_date)
+except:
+    move_out_people = None
+try:
+    move_in_people = get_move_in(abbrev_move_in_date)
+except Exception as er:
+    print(er)
+    move_in_people = None
 
 
-
-duty_text = formatted_date + "\n"
+duty_text = display_formatted_date + "\n"
 if move_out_people is not None:
     duty_text += "*Duty:*\n" + people_on_duty + "\n\n*Move Out Shifts:*\n" + move_out_people
+elif move_in_people is not None:
+    duty_text += "*Duty:*\n" + people_on_duty + "\n\n*Move In Shifts:*\n" + move_in_people
 else:
     duty_text += people_on_duty
+
 
 # slack authentication & message posting
 slack_creds_file = open("ev-slack-app-auth.txt", "r")
 client = WebClient(token=slack_creds_file.readline())
-
 try:
-    response = client.chat_postMessage(channel='C05CDGPHMU2', text=duty_text) # Bot channel
+    response = client.chat_postMessage(channel='C069GEG60G3', text=duty_text) # Bot channel
     #response = client.chat_postMessage(channel='C05CDGPHMU2', text=duty_text) # Duty info channel
     # assert response["message"]["text"] == "drop dead"
     print(duty_text)
