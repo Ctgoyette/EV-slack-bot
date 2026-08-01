@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 import gspread
+import time
 
 class SpreadsheetClient:
     def __init__(self, creds_file, sheets_file, duty_worksheet = None, move_in_worksheet = None, move_out_worksheet=None):
@@ -29,13 +30,13 @@ class SpreadsheetClient:
             name = ''
             name = current_row_values[start_column]
             if account_for_blank == -1:
-                while name is not None and name != '/0':
+                while name is not None and name != '/0' and name != 'Empty':
                     list_of_people.append(name)
                     start_column += 1
                     name = current_row_values[start_column]
             else:
                 while (start_column < (account_for_blank)) and (name != '/0'):
-                    if (name is not None) and name != '':
+                    if (name is not None) and name != '' and name != 'Empty':
                         list_of_people.append(name)
                     start_column += 1
                     name = current_row_values[start_column]
@@ -60,17 +61,18 @@ class SpreadsheetClient:
         try:
             target_row = self.duty_worksheet.find(date).row
             duty_people = self.get_people_on_row(
-                self.duty_worksheet, target_row, 6)
+                self.duty_worksheet, target_row, 6, 7)
             return (duty_people)
         except:
             return ("Happy Holidays!")
 
     def get_move_out(self, date):
-        DATE_COLUMN = 1
+        DATE_COLUMN = 2
         TIME_COLUMN = 3
-        FIRST_RA_COLUMN = 5
+        FIRST_RA_COLUMN = 4
+        formatted_date = date.replace(' ', '')
         try:
-            target_row = self.move_out_worksheet.find(date).row
+            target_row = self.move_out_worksheet.find(formatted_date).row
             move_out_row = self.get_people_on_row(
                 self.move_out_worksheet, target_row, FIRST_RA_COLUMN)
             move_out_people = self.move_out_worksheet.cell(
@@ -85,7 +87,7 @@ class SpreadsheetClient:
                 target_row += 1
             return (move_out_people)
         except Exception as e:
-            print(self.move_out_worksheet.row_count)
+            print(e)
             print('Could not find any move-out shifts for today')
             return None
 
@@ -93,7 +95,7 @@ class SpreadsheetClient:
         DATE_COLUMN = 1
         TIME_COLUMN = 3
         FIRST_RA_COLUMN = 5
-        LAST_RA_COLUMN = 15
+        LAST_RA_COLUMN = 14
         try:
             target_row = self.move_in_worksheet.find(date).row
             move_in_row = self.get_people_on_row(
@@ -102,13 +104,17 @@ class SpreadsheetClient:
                 self.move_in_worksheet.cell(
                     target_row, TIME_COLUMN).value + ':` ' + move_in_row
             target_row += 1
-            while (target_row - 1 != self.move_in_worksheet.row_count) and (self.move_in_worksheet.cell(target_row, FIRST_RA_COLUMN).value is not None) and (self.move_in_worksheet.cell(target_row, DATE_COLUMN).value is None):
+            row_count = self.move_in_worksheet.row_count
+            next_row_val = self.move_in_worksheet.cell(target_row, FIRST_RA_COLUMN).value
+            while (target_row - 1 != row_count) and (next_row_val is not None) and (next_row_val != "Empty") and (self.move_in_worksheet.cell(target_row, DATE_COLUMN).value is None):
                 move_in_row = self.get_people_on_row(
                     self.move_in_worksheet, target_row, FIRST_RA_COLUMN, LAST_RA_COLUMN)
                 move_in_people = move_in_people + '\n' + '`' + \
                     self.move_in_worksheet.cell(
                         target_row, TIME_COLUMN).value + ':` ' + move_in_row
                 target_row += 1
+                next_row_val = self.move_in_worksheet.cell(target_row, FIRST_RA_COLUMN).value
+                print(move_in_people)
             return (move_in_people)
         except Exception as e:
             print(e)
