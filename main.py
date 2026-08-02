@@ -1,9 +1,13 @@
 from spreadsheet_client import SpreadsheetClient
 
 from datetime import datetime, timedelta
+import requests
+import json
 
 from slack_sdk import WebClient;
 from slack_sdk.errors import SlackApiError;
+
+OUTPUT_PLATFORM = 'Teams'
 
 
 duty_sheet = SpreadsheetClient('ev-slack-bot-credentials.json', 'EV CA Summer 26 Duty + More', duty_worksheet='Duty')
@@ -36,20 +40,62 @@ elif move_out_people is not None:
 else:
     duty_text += people_on_duty
 
+if OUTPUT_PLATFORM == 'Slack':
+    # slack authentication & message posting
+    slack_creds_file = open("ev-slack-app-auth.txt", "r")
+    client = WebClient(token=slack_creds_file.readline())
+    try:
+        # response = client.chat_postMessage(channel='C0B4LGKMZE2', text=duty_text) # Bot channel
+        # response = client.chat_postMessage(channel='C0B11S37CDS', text=duty_text) # Duty info channel
+        # assert response["message"]["text"] == "drop dead"
+        print(duty_text)
+    except SlackApiError as e:
+        # You will get a SlackApiError if "ok" is False
+        assert e.response["ok"] is False
+        # assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
+        print(f"Got an error: {e.response['error']}")
+elif OUTPUT_PLATFORM == 'Teams':
+    webhook_url = open("teams-webhook.txt", "r").readline()
 
-# slack authentication & message posting
-slack_creds_file = open("ev-slack-app-auth.txt", "r")
-client = WebClient(token=slack_creds_file.readline())
-try:
-    # response = client.chat_postMessage(channel='C0B4LGKMZE2', text=duty_text) # Bot channel
-    # response = client.chat_postMessage(channel='C0B11S37CDS', text=duty_text) # Duty info channel
-    # assert response["message"]["text"] == "drop dead"
-    print(duty_text)
-except SlackApiError as e:
-    # You will get a SlackApiError if "ok" is False
-    assert e.response["ok"] is False
-    # assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
-    print(f"Got an error: {e.response['error']}")
+    message = {
+        "type": "message",
+        "attachments": [
+            {
+                "contentType": "application/vnd.microsoft.card.adaptive",
+                "content": {
+                    "type": "AdaptiveCard",
+                    "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+                    "version": "1.4",
+                    "body": [
+                        {
+                            "type": "TextBlock",
+                            "text": display_formatted_date,
+                            "weight": "Bolder",
+                            "size": "Large",
+                            "wrap": True
+                        },
+                        {
+                            "type": "TextBlock",
+                            "text": people_on_duty,
+                            "wrap": True
+                        }
+                    ]
+                }
+            }
+        ]
+    }
+
+    response = requests.post(
+        webhook_url,
+        data=json.dumps(message),
+        headers={"Content-Type": "application/json"}
+    )
+
+    if response.status_code == 200:
+        print("Message sent successfully")
+    else:
+        print(f"Failed to send message: {response.status_code}, {response.text}")
+
 
 
 
